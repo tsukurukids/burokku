@@ -1,0 +1,235 @@
+// ========================================
+// メイン処理・インタラクション
+// ========================================
+
+// DOM要素
+let mainCanvas, ctx, pieceSelection;
+
+/**
+ * ドラッグ開始
+ * @param {Event} e - イベントオブジェクト
+ * @param {number} idx - ピースのインデックス
+ */
+function startDrag(e, idx) {
+    if (isGameOver || !currentPieces[idx]) return;
+    e.preventDefault();
+    initAudio();
+    playSound(440, 0.05, 'triangle');
+
+    selectedPieceIndex = idx;
+    const clX = e.clientX || e.touches[0].clientX;
+    const clY = e.clientY || e.touches[0].clientY;
+    const p = currentPieces[idx];
+    isDragging = true;
+
+    // フローティングキャンバスを作成
+    const c = document.createElement('canvas');
+    c.width = p.matrix[0].length * BLOCK_SIZE;
+    c.height = p.matrix.length * BLOCK_SIZE;
+    c.style.position = 'fixed';
+    c.style.pointerEvents = 'none';
+    c.style.zIndex = '1500';
+    c.style.opacity = '0.9';
+
+    const pctx = c.getContext('2d');
+    p.matrix.forEach((row, y) => {
+        row.forEach((v, x) => {
+            if (v !== 0) drawBlock(pctx, x, y, p.color, BLOCK_SIZE);
+        });
+    });
+
+    floatingPieceElement = c;
+    document.body.appendChild(c);
+
+    // カーソル位置からブロックの中心までのオフセットを計算
+    dragStartOffset.x = c.width / 2;
+    dragStartOffset.y = c.height / 2;
+
+    drawSelection();
+    document.addEventListener('mousemove', dragMove);
+    document.addEventListener('mouseup', dragEnd);
+    document.addEventListener('touchmove', dragMove, { passive: false });
+    document.addEventListener('touchend', dragEnd);
+}
+
+/**
+ * ドラッグ中
+ * @param {Event} e - イベントオブジェクト
+ */
+function dragMove(e) {
+    if (!isDragging) return;
+    e.preventDefault();
+
+    const clX = e.clientX || e.touches[0].clientX;
+    const clY = e.clientY || e.touches[0].clientY;
+
+    floatingPieceElement.style.left = `${clX - dragStartOffset.x}px`;
+    floatingPieceElement.style.top = `${clY - dragStartOffset.y}px`;
+
+    const rect = mainCanvas.getBoundingClientRect();
+    ghostPosition.x = Math.floor((clX - rect.left) / BLOCK_SIZE);
+    ghostPosition.y = Math.floor((clY - rect.top) / BLOCK_SIZE);
+
+    if (clX < rect.left || clX > rect.right || clY < rect.top || clY > rect.bottom) {
+        ghostPosition.x = -1;
+        ghostPosition.y = -1;
+    }
+
+    drawMain();
+}
+
+/**
+ * ドラッグ終了
+ */
+function dragEnd() {
+    if (!isDragging) return;
+    isDragging = false;
+    floatingPieceElement.remove();
+
+    document.removeEventListener('mousemove', dragMove);
+    document.removeEventListener('mouseup', dragEnd);
+    document.removeEventListener('touchmove', dragMove);
+    document.removeEventListener('touchend', dragEnd);
+
+    if (ghostPosition.x !== -1 && isValid(currentPieces[selectedPieceIndex].matrix, ghostPosition.x, ghostPosition.y)) {
+        placePiece();
+        playSound(880, 0.05, 'square');
+    } else {
+        playSound(110, 0.1, 'sawtooth');
+    }
+
+    if (currentPieces.every(p => p === null)) {
+        currentPieces = [createPiece(), createPiece(), createPiece()];
+        playSound(660, 0.1);
+    }
+
+    selectedPieceIndex = -1;
+    ghostPosition = { x: -1, y: -1 };
+    drawSelection();
+    drawMain();
+    checkGameOver();
+}
+
+/**
+ * ゲームを開始
+ * @param {string} mode - ゲームモード（'ADVENTURE' または 'SOLO'）
+ */
+function startGame(mode) {
+    currentMode = mode;
+    document.getElementById('homeScreen').style.display = 'none';
+    document.getElementById('gameArea').style.display = 'flex';
+    initAudio();
+    initBGM();
+
+    // DOM要素の取得
+    mainCanvas = document.getElementById('mainCanvas');
+    ctx = mainCanvas.getContext('2d');
+    pieceSelection = document.getElementById('pieceSelection');
+
+    const parentW = mainCanvas.clientWidth;
+    BLOCK_SIZE = parentW / COLS;
+    mainCanvas.width = parentW;
+    mainCanvas.height = parentW;
+
+    board = Array.from({ length: ROWS }, () => Array(COLS).fill(0));
+    score = 0;
+    currentCombo = 0;
+    missCount = 0;
+    isGameOver = false;
+    adventureProgress = 0;
+
+    document.getElementById('victoryOverlay').style.display = 'none';
+    document.getElementById('gameOverOverlay').style.display = 'none';
+    document.getElementById('settingsModal').style.display = 'none';
+
+    if (mode === 'ADVENTURE') {
+        document.getElementById('gameModeTitle').textContent = "ADVENTURE";
+        generateAdventureShape();
+    } else {
+        document.getElementById('gameModeTitle').textContent = "CLASSIC";
+    }
+
+    currentPieces = [createPiece(), createPiece(), createPiece()];
+    drawSelection();
+    update();
+    taunt("START");
+}
+
+/**
+ * ゲームループ
+ */
+function update() {
+    if (!isGameOver) {
+        drawMain();
+        updateUI();
+        requestAnimationFrame(update);
+    }
+}
+
+/**
+ * 設定モーダルを開く
+ */
+function openSettingsModal() {
+    document.getElementById('settingsModal').style.display = 'flex';
+    playSound(500, 0.05, 'square');
+}
+
+/**
+ * 設定モーダルを閉じる
+ */
+function closeSettingsModal() {
+    document.getElementById('settingsModal').style.display = 'none';
+}
+
+/**
+ * アドベンチャールールを表示
+ */
+function showAdventureRules() {
+    document.getElementById('adventureRuleModal').style.display = 'flex';
+}
+
+/**
+ * アドベンチャールールを閉じる
+ */
+function closeAdventureRules() {
+    document.getElementById('adventureRuleModal').style.display = 'none';
+}
+
+/**
+ * モーダルからアドベンチャーを開始
+ */
+function startAdventureFromModal() {
+    closeAdventureRules();
+    startGame('ADVENTURE');
+}
+
+/**
+ * 次のステージへ進む
+ */
+function nextStage() {
+    document.getElementById('stageClearOverlay').style.display = 'none';
+    generateAdventureShape();
+    isGameOver = false;
+    update(); // ゲームループを再開
+}
+
+/**
+ * ホーム画面に戻る
+ */
+function goToHome() {
+    location.reload();
+}
+
+/**
+ * ゲームを再開
+ */
+function restartGame() {
+    startGame(currentMode);
+}
+
+/**
+ * ページ読み込み時の初期化
+ */
+window.onload = () => {
+    document.getElementById('homeScreen').style.display = 'flex';
+};

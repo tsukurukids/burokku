@@ -1,0 +1,936 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ブロックブラストパズル</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
+        
+        /* ゲーム全体を中央に配置 */
+        body {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            background-color: #222244; 
+            color: #ffffff;
+            font-family: 'Press Start 2P', cursive;
+            user-select: none;
+            /* ドラッグ中にカーソルが変わるのを防止 */
+            touch-action: none; 
+            padding: 10px; /* モバイルでの端の余白 */
+            box-sizing: border-box;
+        }
+
+        .game-title {
+            color: #00FFFF;
+            text-shadow: 0 0 10px #00FFFF;
+            margin-bottom: 20px;
+            font-size: 1.2em;
+            text-align: center;
+        }
+
+        .game-area {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            padding: 15px; /* パディングを少し減らしてモバイル対応 */
+            background-color: #1a1a33;
+            border: 8px solid #ff55aa; 
+            box-shadow: 0 0 30px rgba(255, 85, 170, 0.8);
+            border-radius: 12px;
+            
+            /* モバイル対応のキー設定 */
+            width: 90vw;
+            max-width: 400px; /* PCでの最大サイズ */
+        }
+
+        .info-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 0;
+            font-size: 10px;
+            color: #ffaa00;
+        }
+
+        /* メインボードのCanvasスタイル */
+        #mainCanvas {
+            border: 4px solid #00bfff;
+            background-color: #000000;
+            display: block;
+            box-shadow: 0 0 15px rgba(0, 191, 255, 0.6);
+            cursor: default; 
+            
+            /* CSSで幅を100%にして親要素に合わせる（高さはJSで設定） */
+            width: 100%; 
+            height: auto; 
+        }
+
+        /* ピース選択エリア */
+        .piece-selection {
+            display: flex;
+            justify-content: space-around;
+            padding: 10px 0;
+            background-color: #2c2c54;
+            border-radius: 8px;
+            min-height: 100px; /* ピースがない時もレイアウト崩れを防ぐ */
+        }
+
+        .piece-slot {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            position: relative;
+            cursor: grab; 
+            transition: transform 0.1s;
+            /* モバイル対応: 均等に幅を分割 */
+            width: 30%; 
+        }
+
+        .piece-slot:hover {
+            transform: scale(1.05);
+        }
+
+        .piece-canvas {
+            /* ピース描画エリアのCanvas。サイズはJSで動的に設定される */
+            border: 2px solid transparent;
+            border-radius: 4px;
+            transition: border-color 0.2s, box-shadow 0.2s;
+            /* Canvasをレスポンシブにするための設定 */
+            max-width: 100%;
+        }
+        
+        /* 以下、メッセージオーバーレイなどは変更なし */
+
+        .message-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.9);
+            display: none; 
+            justify-content: center;
+            align-items: center;
+            z-index: 100;
+            border-radius: 12px;
+        }
+
+        .message-content {
+            background-color: #ff55aa;
+            padding: 30px;
+            border-radius: 10px;
+            text-align: center;
+            border: 5px solid #00bfff;
+            box-shadow: 0 0 20px #00bfff, 0 0 40px #ff55aa;
+        }
+
+        .message-content h1 {
+            color: #222244;
+            font-size: 20px;
+            margin-bottom: 20px;
+        }
+
+        .message-content p {
+            font-size: 12px;
+            margin-bottom: 30px;
+            color: #222244;
+        }
+
+        .restart-button {
+            background-color: #ffaa00;
+            color: #222244;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-family: 'Press Start+ 2P', cursive;
+            font-size: 10px;
+            box-shadow: 0 5px 0 #cc8800;
+            transition: all 0.1s;
+        }
+
+        .restart-button:active {
+            box-shadow: 0 2px 0 #cc8800;
+            transform: translateY(3px);
+        }
+    </style>
+</head>
+<body>
+
+<h1 class="game-title">ブロックブラストパズル</h1>
+
+<div class="game-area">
+    <div class="info-bar">
+        <span>スコア: <span id="scoreDisplay">0</span></span>
+        <span>最大連鎖: <span id="comboDisplay">0</span></span>
+    </div>
+
+    <!-- mainCanvasのwidth/height属性はJSで上書きされるため、ここでは省略 -->
+    <canvas id="mainCanvas"></canvas>
+    
+    <div class="piece-selection" id="pieceSelection">
+        <!-- 3つのピーススロットがJavaScriptによってここに挿入されます -->
+    </div>
+
+    <div id="gameOverOverlay" class="message-overlay">
+        <div class="message-content">
+            <h1>ゲームオーバー</h1>
+            <p>最終スコア: <span id="finalScore">0</span></p>
+            <button class="restart-button" onclick="restartGame()">リスタート</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    // 定数
+    const ROWS = 8;
+    const COLS = 8;
+    const PIECE_SCALE_FACTOR = 0.8; // ピース選択エリアの縮小率 (80%)
+    const PIECE_SLOT_MAX_GRID = 4; // ピーススロットで確保するグリッドの最大サイズ (4x4)
+    
+    // 変数 (initGameで動的に設定される)
+    let BLOCK_SIZE; 
+    let CANVAS_SIZE; // 実際のCanvasサイズ（ピクセル）
+    
+    // キャンバスとコンテキスト
+    const mainCanvas = document.getElementById('mainCanvas');
+    const ctx = mainCanvas.getContext('2d');
+    const pieceSelection = document.getElementById('pieceSelection');
+
+    // ゲーム状態
+    let board = [];
+    let score = 0;
+    let currentPieces = []; 
+    let selectedPieceIndex = -1; 
+    let maxCombo = 0;
+    let currentCombo = 0;
+    let isGameOver = false;
+    // const blastEffectActive = false; // 白いフラッシュを無効化するため削除またはコメントアウト
+    // const blastEffectStartTime = 0; // 白いフラッシュを無効化するため削除またはコメントアウト
+
+    // === ドラッグ＆ドロップ関連の状態 ===
+    let isDragging = false;
+    let dragStartOffset = { x: 0, y: 0 }; 
+    let dragCurrentPosition = { x: -1, y: -1 }; 
+    let ghostPosition = { x: -1, y: -1 }; 
+    let floatingPieceElement = null; 
+    // ====================================
+
+    // ブロックブラスト風のシェイプ定義
+    const BLOCK_BLAST_SHAPES = [
+        { shape: [[1]], color: '#FFD700' }, // 1x1
+        { shape: [[1, 1]], color: '#00FFFF' }, // 1x2
+        { shape: [[1], [1]], color: '#FF00FF' }, // 2x1
+        { shape: [[1, 1], [1, 1]], color: '#FF4500' }, // 2x2
+        { shape: [[1, 1, 1]], color: '#32CD32' }, // 1x3
+        { shape: [[1], [1], [1]], color: '#8A2BE2' }, // 3x1
+        { shape: [[1, 1, 1], [0, 1, 0]], color: '#FFA500' }, // T (3x2)
+        { shape: [[1, 0], [1, 1]], color: '#FF6347' }, // L-small
+        { shape: [[1, 1, 0], [0, 1, 1]], color: '#7CFC00' }, // S
+        { shape: [[0, 1], [1, 1], [1, 0]], color: '#ADFF2F' }, // Z
+        { shape: [[1, 1, 1, 1]], color: '#9400D3' }, // 1x4
+        { shape: [[1], [1], [1], [1]], color: '#FF1493' }, // 4x1
+    ];
+
+    /**
+     * 新しいボードを作成し、0で初期化します。
+     */
+    function createBoard() {
+        return Array.from({ length: ROWS }, () => Array(COLS).fill(0));
+    }
+    
+    /**
+     * ランダムなブロック形状を生成します。
+     */
+    function createRandomPiece() {
+        const typeIndex = Math.floor(Math.random() * BLOCK_BLAST_SHAPES.length);
+        const type = BLOCK_BLAST_SHAPES[typeIndex];
+        return {
+            matrix: type.shape,
+            color: type.color,
+            id: Date.now() + Math.random() // ユニークID
+        };
+    }
+
+    /**
+     * ブロックの色を明るくするヘルパー関数 (立体感のため)
+     */
+    function getBrighterColor(hex, amount) {
+        let r = parseInt(hex.substring(1, 3), 16);
+        let g = parseInt(hex.substring(3, 5), 16);
+        let b = parseInt(hex.substring(5, 7), 16);
+
+        r = Math.min(255, r + amount);
+        g = Math.min(255, g + amount);
+        b = Math.min(255, b + amount);
+        
+        return '#' + r.toString(16).padStart(2, '0') + 
+                     g.toString(16).padStart(2, '0') + 
+                     b.toString(16).padStart(2, '0');
+    }
+
+    /**
+     * ブロック（宝石風）を描画します。（グリッド座標とブロックサイズを受け取る）
+     * @param {CanvasRenderingContext2D} context 描画コンテキスト
+     * @param {number} x グリッドX座標
+     * @param {number} y グリッドY座標
+     * @param {string} color ブロックの色
+     * @param {number} size ブロックのピクセルサイズ
+     */
+    function drawBlock(context, x, y, color, size) {
+        const px = x * size;
+        const py = y * size;
+
+        // 1. メインのベースカラー
+        context.fillStyle = color;
+        context.fillRect(px, py, size, size);
+
+        // 2. 立体感を出すためのハイライト (左上)
+        const highlightColor = getBrighterColor(color, 60);
+        context.fillStyle = highlightColor;
+        context.beginPath();
+        context.moveTo(px, py);
+        context.lineTo(px + size * 0.15, py);
+        context.lineTo(px, py + size * 0.15);
+        context.closePath();
+        context.fill();
+
+        // 3. 内側のシャドウ (右下)
+        context.fillStyle = 'rgba(0, 0, 0, 0.2)';
+        context.beginPath();
+        context.moveTo(px + size, py + size);
+        context.lineTo(px + size, py + size * 0.85);
+        context.lineTo(px + size * 0.85, py + size);
+        context.closePath();
+        context.fill();
+        
+        // 4. 中央の小さなハイライト（光沢）
+        context.fillStyle = 'rgba(255, 255, 255, 0.5)';
+        context.fillRect(px + size * 0.1, py + size * 0.1, size * 0.1, size * 0.1);
+        
+        // 5. ブロック間の境界線（黒）
+        context.strokeStyle = '#000000'; 
+        context.lineWidth = 1;
+        context.strokeRect(px, py, size, size);
+    }
+    
+    /**
+     * メインボードの描画
+     */
+    function drawMainBoard() {
+        // 背景をクリア
+        ctx.fillStyle = '#000000';
+        ctx.fillRect(0, 0, CANVAS_SIZE, CANVAS_SIZE);
+
+        // ボードのブロックを描画
+        board.forEach((row, y) => {
+            row.forEach((value, x) => {
+                if (value !== 0) {
+                    drawBlock(ctx, x, y, value, BLOCK_SIZE); // メインボードはBLOCK_SIZE
+                }
+            });
+        });
+        
+        // 選択中のピースのゴースト表示
+        if (selectedPieceIndex !== -1 && (isDragging || ghostPosition.x !== -1)) {
+            drawGhostPiece(ghostPosition.x, ghostPosition.y); 
+        }
+        
+        // ★白いフラッシュの描画ロジックを削除しました★
+    }
+    
+    /**
+     * ゴースト（プレビュー）を描画します。（ここは描画スタイルを変えていないので、fillRectのまま）
+     * @param {number} gx グリッドX座標
+     * @param {number} gy グリッドY座標
+     */
+    function drawGhostPiece(gx, gy) {
+        if (selectedPieceIndex === -1 || gx === -1 || gy === -1) return;
+        
+        const piece = currentPieces[selectedPieceIndex];
+        
+        piece.matrix.forEach((row, y) => {
+            row.forEach((value, x) => {
+                if (value !== 0) {
+                    const boardX = gx + x;
+                    const boardY = gy + y;
+                    
+                    if (boardX >= 0 && boardX < COLS && boardY >= 0 && boardY < ROWS) {
+                        const isValid = isValidPlacement(piece.matrix, gx, gy);
+                        
+                        // ゴーストの色と透明度を設定
+                        ctx.fillStyle = isValid ? 
+                            'rgba(0, 255, 0, 0.4)' : // 配置可能
+                            'rgba(255, 0, 0, 0.4)';  // 配置不可
+                        
+                        // 既にブロックがある場所にはゴーストを描画しない 
+                        if (board[boardY][boardX] === 0) {
+                            ctx.fillRect(boardX * BLOCK_SIZE, boardY * BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE);
+                        }
+                    }
+                }
+            });
+        });
+    }
+    
+    /**
+     * フローティングCanvasを作成し、ピースを描画します。（ドラッグ中はメインボードと同じサイズ）
+     * @param {object} piece ピースオブジェクト
+     */
+    function createFloatingPiece(piece) {
+        // 既存の要素があれば削除
+        if (floatingPieceElement) {
+            floatingPieceElement.remove();
+        }
+        
+        const matrix = piece.matrix;
+        const pieceWidth = matrix[0].length;
+        const pieceHeight = matrix.length;
+        
+        // ピースの実際のサイズに合わせてCanvasサイズを設定 (余白なし)
+        const canvasWidth = pieceWidth * BLOCK_SIZE;
+        const canvasHeight = pieceHeight * BLOCK_SIZE;
+        
+        const canvas = document.createElement('canvas');
+        canvas.width = canvasWidth;
+        canvas.height = canvasHeight;
+        canvas.style.position = 'fixed';
+        canvas.style.pointerEvents = 'none'; 
+        canvas.style.zIndex = '1000';
+        canvas.style.opacity = '0.9';
+        
+        const pCtx = canvas.getContext('2d');
+        
+        // ピースを (0, 0) から描画（Canvasサイズがピースにぴったり合わせられているため）
+        matrix.forEach((row, y) => {
+            row.forEach((value, x) => {
+                if (value !== 0) {
+                    // drawBlockを呼び出し、BLOCK_SIZEを渡す
+                    drawBlock(pCtx, x, y, piece.color, BLOCK_SIZE); 
+                }
+            });
+        });
+        
+        floatingPieceElement = canvas;
+        document.body.appendChild(floatingPieceElement);
+    }
+
+
+    /**
+     * ピース選択エリアの描画と設定
+     */
+    function drawPieceSelection() {
+        if (!BLOCK_SIZE) return; 
+
+        // 縮小されたブロックサイズ
+        const scaledBlockSize = BLOCK_SIZE * PIECE_SCALE_FACTOR;
+        // スロットのCanvasサイズは、縮小されたピースの最大サイズに合わせる
+        // 4x4ピースが入るサイズ
+        const slotCanvasSize = scaledBlockSize * PIECE_SLOT_MAX_GRID; 
+
+        pieceSelection.innerHTML = ''; // クリア
+        
+        currentPieces.forEach((piece, index) => {
+            const slot = document.createElement('div');
+            const isSelected = index === selectedPieceIndex && isDragging;
+            
+            slot.className = `piece-slot ${piece ? '' : 'empty'} ${isSelected ? 'dragging' : ''}`;
+            slot.setAttribute('data-index', index);
+            
+            // D&Dイベントリスナーを設定
+            if (piece) {
+                slot.addEventListener('mousedown', (e) => startDrag(e, index));
+                slot.addEventListener('touchstart', (e) => startDrag(e, index));
+            }
+
+            const canvasElement = document.createElement('canvas');
+            canvasElement.className = 'piece-canvas';
+            canvasElement.width = slotCanvasSize;
+            canvasElement.height = slotCanvasSize;
+            
+            slot.appendChild(canvasElement);
+            pieceSelection.appendChild(slot);
+
+            if (piece) {
+                const pCtx = canvasElement.getContext('2d');
+                pCtx.fillStyle = '#2c2c54'; // 背景色
+                pCtx.fillRect(0, 0, slotCanvasSize, slotCanvasSize);
+
+                const matrix = piece.matrix;
+                const matrixSize = matrix.length;
+                const pieceWidth = matrix[0].length;
+                const pieceHeight = matrixSize;
+                
+                // ピースの縮小後のピクセルサイズ
+                const pieceWidthPixels = pieceWidth * scaledBlockSize;
+                const pieceHeightPixels = pieceHeight * scaledBlockSize;
+
+                // 描画エリアの中央に配置するためのピクセルオフセット
+                const offsetX_pixels = (slotCanvasSize - pieceWidthPixels) / 2;
+                const offsetY_pixels = (slotCanvasSize - pieceHeightPixels) / 2;
+                
+                // drawBlockのグリッドX/Y座標をピクセルオフセットに変換
+                const offsetX_grid = offsetX_pixels / scaledBlockSize;
+                const offsetY_grid = offsetY_pixels / scaledBlockSize;
+                
+                matrix.forEach((row, y) => {
+                    row.forEach((value, x) => {
+                        if (value !== 0) {
+                            // 縮小サイズと新しいオフセットを渡す
+                            drawBlock(pCtx, x + offsetX_grid, y + offsetY_grid, piece.color, scaledBlockSize);
+                        }
+                    });
+                });
+            }
+        });
+    }
+
+    /**
+     * ドラッグ開始ハンドラ
+     */
+    function startDrag(event, index) {
+        if (isGameOver || !currentPieces[index]) return;
+        event.preventDefault(); 
+        
+        selectedPieceIndex = index;
+        
+        const slot = event.currentTarget;
+        // const rect = slot.getBoundingClientRect(); // 使用しない
+        
+        const clientX = event.clientX || event.touches[0].clientX;
+        const clientY = event.clientY || event.touches[0].clientY;
+
+        const piece = currentPieces[index];
+        const pieceMatrix = piece.matrix;
+        const pieceWidth = pieceMatrix[0].length;
+        const pieceHeight = pieceMatrix.length;
+        
+        const scaledBlockSize = BLOCK_SIZE * PIECE_SCALE_FACTOR;
+        const slotCanvasSize = scaledBlockSize * PIECE_SLOT_MAX_GRID; 
+
+        // ピースの縮小後のピクセルサイズ
+        const pieceWidthPixels = pieceWidth * scaledBlockSize;
+        const pieceHeightPixels = pieceHeight * scaledBlockSize;
+
+        // 描画エリアの中央に配置するためのピクセルオフセット
+        const pieceDrawStartX = (slotCanvasSize - pieceWidthPixels) / 2;
+        const pieceDrawStartY = (slotCanvasSize - pieceHeightPixels) / 2;
+
+        const canvas = slot.querySelector('.piece-canvas');
+        const canvasRect = canvas.getBoundingClientRect();
+        
+        // 実際のクリック位置をCanvasの描画サイズ(slotCanvasSize)に正規化
+        const clickXInCanvas = (clientX - canvasRect.left) * (slotCanvasSize / canvasRect.width);
+        const clickYInCanvas = (clientY - canvasRect.top) * (slotCanvasSize / canvasRect.height);
+
+        // dragStartOffset: ドラッグ中のピースの左上隅（0,0）を基準にしたクリック位置のピクセルオフセット
+        // ピースが掴んだブロックに追従するように、クリック位置から「縮小されたピースの描画開始位置」を引く
+        dragStartOffset.x = clickXInCanvas - pieceDrawStartX;
+        dragStartOffset.y = clickYInCanvas - pieceDrawStartY;
+        
+        isDragging = true;
+        
+        // フローティングピースの作成と描画
+        createFloatingPiece(piece);
+
+        // ドラッグ開始時に選択状態のスタイルを更新
+        drawPieceSelection();
+
+        // ドキュメント全体にイベントリスナーを追加してドラッグを追跡
+        document.addEventListener('mousemove', dragMove);
+        document.addEventListener('mouseup', dragEnd);
+        document.addEventListener('touchmove', dragMove, { passive: false });
+        document.addEventListener('touchend', dragEnd);
+        
+        // 最初の位置を記録
+        dragCurrentPosition.x = clientX;
+        dragCurrentPosition.y = clientY;
+    }
+    
+    /**
+     * ドラッグ移動ハンドラ
+     */
+    function dragMove(event) {
+        if (!isDragging) return;
+        event.preventDefault(); // スクロール防止
+        
+        const clientX = event.clientX || event.touches[0].clientX;
+        const clientY = event.clientY || event.touches[0].clientY;
+
+        dragCurrentPosition.x = clientX;
+        dragCurrentPosition.y = clientY;
+        
+        // 1. フローティングピースの位置を更新
+        if (floatingPieceElement) {
+            // マウス位置からオフセットを引いた位置にピースの左上を配置
+            floatingPieceElement.style.left = `${clientX - dragStartOffset.x}px`;
+            floatingPieceElement.style.top = `${clientY - dragStartOffset.y}px`;
+        }
+        
+        // 2. ゴーストピースの位置計算 (メイン Canvas の位置に基づいて)
+        const mainRect = mainCanvas.getBoundingClientRect();
+        
+        // ピースの左上隅の画面座標
+        const offsetX_screen = clientX - dragStartOffset.x;
+        const offsetY_screen = clientY - dragStartOffset.y;
+        
+        // メインCanvasの左上隅を基準にした描画開始位置
+        const offsetX_in_main = offsetX_screen - mainRect.left;
+        const offsetY_in_main = offsetY_screen - mainRect.top;
+        
+        // ピースの左上角のグリッド座標を計算
+        // BLOCK_SIZE / 2 を加えることで、ピースがグリッドの中心に来たときにスナップするような挙動を実現
+        const gx = Math.floor((offsetX_in_main + BLOCK_SIZE / 2) / BLOCK_SIZE);
+        const gy = Math.floor((offsetY_in_main + BLOCK_SIZE / 2) / BLOCK_SIZE);
+
+        if (gx >= 0 && gy >= 0 && gx < COLS && gy < ROWS) {
+            ghostPosition.x = gx;
+            ghostPosition.y = gy;
+        } else {
+            ghostPosition.x = -1;
+            ghostPosition.y = -1;
+        }
+
+        drawMainBoard(); // ゴーストとメインボードを再描画
+    }
+    
+    /**
+     * ドラッグ終了ハンドラ
+     */
+    function dragEnd(event) {
+        if (!isDragging) return;
+        event.preventDefault();
+
+        isDragging = false;
+        
+        // フローティングピースの削除
+        if (floatingPieceElement) {
+            floatingPieceElement.remove();
+            floatingPieceElement = null;
+        }
+        
+        // リスナーを削除
+        document.removeEventListener('mousemove', dragMove);
+        document.removeEventListener('mouseup', dragEnd);
+        document.removeEventListener('touchmove', dragMove);
+        document.removeEventListener('touchend', dragEnd);
+        
+        // ドロップ位置がメインボード内かどうかチェック
+        const mainRect = mainCanvas.getBoundingClientRect();
+        
+        // changedTouchesがない場合、event.clientX/Yを使用 (マウスの場合)
+        const clientX = event.clientX || (event.changedTouches && event.changedTouches[0].clientX);
+        const clientY = event.clientY || (event.changedTouches && event.changedTouches[0].clientY);
+        
+        let placed = false;
+
+        // ドロップがメインボード内か判定
+        if (clientX >= mainRect.left && clientX <= mainRect.right && 
+            clientY >= mainRect.top && clientY <= mainRect.bottom) {
+            
+            // ピースの左上角のグリッド座標（dragMoveで計算されたゴースト位置を使用）
+            const dropX = ghostPosition.x;
+            const dropY = ghostPosition.y;
+            
+            if (dropX !== -1 && dropY !== -1) {
+                const piece = currentPieces[selectedPieceIndex];
+                if (isValidPlacement(piece.matrix, dropX, dropY)) {
+                    placePiece(dropX, dropY);
+                    placed = true;
+                }
+            }
+        }
+        
+        // ドラッグ状態をリセット
+        selectedPieceIndex = -1;
+        ghostPosition = { x: -1, y: -1 };
+        dragCurrentPosition = { x: -1, y: -1 };
+        
+        drawPieceSelection();
+        drawMainBoard();
+        checkGameOver(); // ピースが配置されずにゲームオーバーになる可能性もあるためチェック
+    }
+
+
+    
+    /**
+     * 配置がボード内であり、かつ空のマスであるかをチェックします。
+     * @param {number[][]} matrix 配置するピースの形状
+     * @param {number} startX ボード上のX座標
+     * @param {number} startY ボード上のY座標
+     * @returns {boolean} 配置が有効であるかどうか
+     */
+    function isValidPlacement(matrix, startX, startY) {
+        for (let y = 0; y < matrix.length; y++) {
+            for (let x = 0; x < matrix[y].length; x++) {
+                if (matrix[y][x] !== 0) {
+                    const boardX = startX + x;
+                    const boardY = startY + y;
+
+                    // 1. ボードの境界外か
+                    if (boardX < 0 || boardX >= COLS || boardY < 0 || boardY >= ROWS) {
+                        return false;
+                    }
+
+                    // 2. 既存のブロックと衝突していないか (空のマスであること)
+                    if (board[boardY][boardX] !== 0) {
+                        return false; 
+                    }
+                }
+            }
+        }
+        return true;
+    }
+    
+    /**
+     * ピースをボードに配置します。
+     * @param {number} startX ボード上のX座標
+     * @param {number} startY ボード上のY座標
+     */
+    function placePiece(startX, startY) {
+        if (selectedPieceIndex === -1) return;
+
+        const piece = currentPieces[selectedPieceIndex];
+        
+        // ボードにブロックを固定
+        piece.matrix.forEach((row, y) => {
+            row.forEach((value, x) => {
+                if (value !== 0) {
+                    const boardX = startX + x;
+                    const boardY = startY + y;
+                    board[boardY][boardX] = piece.color;
+                }
+            });
+        });
+
+        // ピースを消費
+        currentPieces[selectedPieceIndex] = null;
+        
+        const linesCleared = clearLines();
+        
+        // ラインクリアによるスコアとコンボの更新
+        if (linesCleared > 0) {
+            currentCombo++;
+            score += linesCleared * 100 + (currentCombo - 1) * 50; // 基本スコア + コンボボーナス
+            maxCombo = Math.max(maxCombo, currentCombo);
+            // ★白いフラッシュは無効化したため、エフェクト関連のコードを削除しました。
+        } else {
+            currentCombo = 0;
+        }
+        
+        // 全てのピースが置かれたかチェック
+        checkPieceRefill();
+        
+        // 描画更新
+        updateDisplay();
+        // ゲームオーバーチェックは dragEnd で行う
+    }
+    
+    /**
+     * 揃った行と列を削除し、スコアを更新します。
+     * @returns {number} クリアされたライン（行と列）の合計数
+     */
+    function clearLines() {
+        let linesCleared = 0;
+        let clearedRows = [];
+        let clearedCols = [];
+        
+        // 1. 行のチェック
+        for (let y = 0; y < ROWS; y++) {
+            if (board[y].every(value => value !== 0)) {
+                clearedRows.push(y);
+                linesCleared++;
+            }
+        }
+
+        // 2. 列のチェック
+        for (let x = 0; x < COLS; x++) {
+            let isColFull = true;
+            for (let y = 0; y < ROWS; y++) {
+                if (board[y][x] === 0) {
+                    isColFull = false;
+                    break;
+                }
+            }
+            if (isColFull) {
+                clearedCols.push(x);
+                linesCleared++;
+            }
+        }
+        
+        // 3. クリア処理
+        if (linesCleared > 0) {
+            // ★白いフラッシュは無効化したため、エフェクト関連のコードを削除しました。
+            
+            // 行のクリア
+            clearedRows.forEach(y => {
+                for (let x = 0; x < COLS; x++) {
+                    board[y][x] = 0; // 行を空にする
+                }
+            });
+
+            // 列のクリア
+            clearedCols.forEach(x => {
+                for (let y = 0; y < ROWS; y++) {
+                    board[y][x] = 0; // 列を空にする
+                }
+            });
+        }
+        
+        return linesCleared;
+    }
+    
+    /**
+     * 3つのピーススロットが全て空の場合、新しいピースを補充します。
+     */
+    function checkPieceRefill() {
+        const allEmpty = currentPieces.every(piece => piece === null);
+        if (allEmpty) {
+            for (let i = 0; i < 3; i++) {
+                currentPieces[i] = createRandomPiece();
+            }
+        }
+    }
+    
+    /**
+     * ゲームオーバー条件（残りの全ピースが配置不可能）をチェックします。
+     */
+    function checkGameOver() {
+        const remainingPieces = currentPieces.filter(p => p !== null);
+        if (remainingPieces.length === 0) return; // 補充待ちならOK
+        
+        let canPlaceAnyPiece = false;
+        
+        // 残っている各ピースについてチェック
+        for (const piece of remainingPieces) {
+            const matrix = piece.matrix;
+            
+            // ボードの全てのマスについてチェック
+            for (let startY = 0; startY < ROWS; startY++) {
+                for (let startX = 0; startX < COLS; startX++) {
+                    if (isValidPlacement(matrix, startX, startY)) {
+                        canPlaceAnyPiece = true;
+                        break;
+                    }
+                }
+                if (canPlaceAnyPiece) break;
+            }
+            if (canPlaceAnyPiece) break;
+        }
+
+        if (!canPlaceAnyPiece && remainingPieces.length > 0) {
+            isGameOver = true;
+            showGameOver();
+        }
+    }
+
+    /**
+     * スコアとコンボ表示を更新します。
+     */
+    function updateDisplay() {
+        document.getElementById('scoreDisplay').textContent = score;
+        document.getElementById('comboDisplay').textContent = maxCombo;
+    }
+    
+    
+    /**
+     * メインの描画・更新ループ
+     */
+    function update(time = 0) {
+        if (isGameOver) {
+            return;
+        }
+        
+        // ★白いフラッシュの制御ロジックを削除しました。
+        
+        drawMainBoard();
+        requestAnimationFrame(update);
+    }
+
+    /**
+     * ゲームオーバーメッセージを表示します。
+     */
+    function showGameOver() {
+        document.getElementById('finalScore').textContent = score;
+        document.getElementById('gameOverOverlay').style.display = 'flex';
+    }
+
+    /**
+     * ゲームを初期化し、開始します。
+     */
+    function initGame() {
+        // **1. モバイル対応のための動的なサイズ計算**
+        // 親要素（.game-area）の現在の幅を取得
+        const parentWidth = mainCanvas.parentElement.clientWidth;
+        
+        // 8x8グリッドなので、幅と高さを合わせる
+        CANVAS_SIZE = parentWidth; 
+        
+        mainCanvas.width = CANVAS_SIZE;
+        mainCanvas.height = CANVAS_SIZE;
+
+        // BLOCK_SIZEを動的に計算し直す
+        BLOCK_SIZE = CANVAS_SIZE / COLS;
+        
+        // 2. その他のゲーム状態の初期化
+        board = createBoard();
+        score = 0;
+        currentCombo = 0;
+        maxCombo = 0;
+        selectedPieceIndex = -1;
+        isGameOver = false;
+        // blastEffectActive = false; // 初期化も不要
+        
+        // ドラッグ状態をリセット
+        isDragging = false;
+        ghostPosition = { x: -1, y: -1 };
+        dragCurrentPosition = { x: -1, y: -1 };
+        if (floatingPieceElement) {
+            floatingPieceElement.remove();
+            floatingPieceElement = null;
+        }
+        
+        currentPieces = [createRandomPiece(), createRandomPiece(), createRandomPiece()];
+        
+        document.getElementById('gameOverOverlay').style.display = 'none';
+
+        drawPieceSelection(); // BLOCK_SIZE設定後に呼び出す
+        updateDisplay();
+        
+        // 以前のイベントリスナー（クリック操作）を削除
+        mainCanvas.removeEventListener('mousemove', handleMouseMove);
+        mainCanvas.removeEventListener('click', handleMainBoardClick);
+        mainCanvas.removeEventListener('touchmove', handleMouseMove);
+        mainCanvas.removeEventListener('touchend', handleMainBoardClick);
+
+        update();
+    }
+    
+    /**
+     * リスタートボタンから呼ばれる関数
+     */
+    window.restartGame = function() {
+        initGame();
+    }
+    
+    // ウィンドウサイズ変更時にもinitGameを呼び出してレスポンシブに対応
+    window.addEventListener('resize', () => {
+        // ドラッグ中のリサイズは無視
+        if (!isDragging) {
+            initGame();
+        }
+    });
+
+    // ウィンドウがロードされたらゲームを開始
+    window.onload = function() {
+        initGame();
+    };
+
+</script>
+</body>
+</html>

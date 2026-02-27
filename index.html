@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ブロックブラスト・究極パズル</title>
+
+    <!-- スタイルシート -->
+    <link rel="stylesheet" href="css/style.css">
+
+    <!-- 外部ライブラリ -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.min.js"></script>
+</head>
+
+<body>
+
+    <!-- ホーム画面 -->
+    <div id="homeScreen">
+        <div class="logo-container">
+            <h1 class="logo-block">
+                <span>B</span><span>L</span><span style="position: relative;">O<span
+                        class="crown">👑</span></span><span>C</span><span>K</span>
+            </h1>
+            <p class="logo-blast">BLAST CLONE</p>
+        </div>
+        <button class="home-button btn-adventure" onclick="showAdventureRules()">
+            <div>📍 ADVENTURE</div>
+            <span style="font-size: 9px; margin-top: 5px;">Shape Challenge (50 Stages)</span>
+        </button>
+        <button class="home-button btn-classic" onclick="startGame('SOLO')">
+            <div>∞ CLASSIC</div>
+            <span style="font-size: 9px; margin-top: 5px;">New Score System!</span>
+        </button>
+    </div>
+
+    <!-- ゲームエリア -->
+    <div class="game-area" id="gameArea">
+        <h1 id="gameModeTitle" style="font-size: 10px; text-align: center; margin: 0; color: #ff55aa;">CLASSIC</h1>
+        <button id="settingsButton" onclick="openSettingsModal()">⚙️</button>
+
+        <div class="info-bar">
+            <span>SCORE: <span id="scoreDisplay">0</span></span>
+            <span id="modeInfoDisplay">COMBO: 0</span>
+        </div>
+
+        <canvas id="mainCanvas"></canvas>
+
+        <div id="tauntMessage">煽り待機中...</div>
+
+        <div class="piece-selection" id="pieceSelection"></div>
+
+    </div>
+
+    <!-- 設定モーダル -->
+    <div id="settingsModal" class="modal-overlay">
+        <div class="modal-content">
+            <h2 style="font-size: 1.2rem; margin-bottom: 15px;">SETTINGS</h2>
+            <button class="modal-button" onclick="toggleSound()">🔊 SOUND TOGGLE</button>
+            <button class="modal-button" onclick="toggleBGM()">🎵 BGM TOGGLE</button>
+            <button class="modal-button" onclick="goToHome()">🏠 EXIT TO HOME</button>
+            <button class="modal-button" onclick="restartGame()">🔄 RESTART</button>
+            <button class="modal-button" style="background:#888; box-shadow:0 4px 0 #555;"
+                onclick="closeSettingsModal()">CLOSE</button>
+        </div>
+    </div>
+
+    <!-- ゲームオーバーモーダル -->
+    <div id="gameOverOverlay" class="modal-overlay">
+        <div class="modal-content">
+            <h1 style="color:#ff55aa;">GAME OVER</h1>
+            <p id="finalScoreText" style="margin: 15px 0;"></p>
+            <button class="modal-button" onclick="restartGame()">TRY AGAIN</button>
+            <button class="modal-button" style="background:#55acee; box-shadow:0 4px 0 #3b88c3;"
+                onclick="goToHome()">HOME</button>
+        </div>
+    </div>
+
+    <!-- 勝利モーダル（全クリア） -->
+    <div id="victoryOverlay" class="modal-overlay">
+        <div class="modal-content">
+            <h1 style="color:#FFD700;">CONGRATS!</h1>
+            <p>50個の図形を完全制覇！</p>
+            <p>君がアドベンチャーの覇者だｗ</p>
+            <button class="modal-button" onclick="goToHome()">HOME</button>
+        </div>
+    </div>
+
+    <!-- ステージクリアモーダル -->
+    <div id="stageClearOverlay" class="modal-overlay">
+        <div class="modal-content">
+            <h1 style="color:#FFD700; margin-bottom: 5px;">STAGE CLEAR!</h1>
+            <p style="font-size: 1.2rem; color: #fff; margin-bottom: 10px;">おめでとう！天才かよｗ</p>
+            <div style="margin-bottom: 15px;">
+                <img id="clearImage" src="funny_celebration_cat_1772186007455.png" alt="funny cat"
+                    style="width: 100%; border-radius: 8px; border: 3px solid #FFD700;">
+            </div>
+            <button class="modal-button" onclick="nextStage()"
+                style="background: #32cd32; box-shadow: 0 4px 0 #207144;">次のステージへ！</button>
+        </div>
+    </div>
+
+    <!-- アドベンチャールールモーダル -->
+    <div id="adventureRuleModal" class="modal-overlay">
+        <div class="modal-content" style="text-align: left; font-family: sans-serif;">
+            <h2
+                style="color:#FFD700; text-align: center; margin-bottom: 15px; font-family: 'Press Start 2P', cursive; font-size: 0.9rem;">
+                ADVENTURE RULE</h2>
+            <div style="font-size: 0.9rem; line-height: 1.6; color: #fff;">
+                <p><strong>【目標】</strong><br>全50種類の図形を完成させよう！</p>
+                <p><strong>【ルール】</strong><br>
+                    1. 白い枠の上にブロックを<strong>「置く」</strong><br>
+                    2. その枠がある行（ヨコ）か列（タテ）を<strong>「揃えて消す」</strong><br>
+                    この2つのステップで枠をゲットできます！
+                </p>
+                <p><strong>【クリア】</strong><br>画面内のすべての枠をゲットすればステージクリア！</p>
+                <p style="font-size: 0.75rem; color: #ffaa00; margin-top: 10px;">※ブロックが置けなくなるとゲームオーバーですｗ</p>
+            </div>
+            <button class="modal-button" onclick="startAdventureFromModal()"
+                style="margin-top: 20px; background: #ffaa00; box-shadow: 0 4px 0 #cc6600;">よーい...スタート！</button>
+            <button class="modal-button" onclick="closeAdventureRules()"
+                style="background: #888; box-shadow: 0 4px 0 #555;">キャンセル</button>
+        </div>
+    </div>
+
+    <!-- JavaScriptファイル（順序重要） -->
+    <script src="js/config.js"></script>
+    <script src="js/audio.js"></script>
+    <script src="js/render.js"></script>
+    <script src="js/game.js"></script>
+    <script src="js/main.js"></script>
+
+</body>
+
+</html>
