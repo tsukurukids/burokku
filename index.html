@@ -22,65 +22,114 @@
                 <span>B</span><span>L</span><span style="position: relative;">O<span
                         class="crown">👑</span></span><span>C</span><span>K</span>
             </h1>
-            <p class="logo-blast">BLAST CLONE</p>
+            <p class="logo-blast">ブロックブラスト</p>
         </div>
         <button class="home-button btn-adventure" onclick="startGame('ADVENTURE')">
-            <div>📍 ADVENTURE</div>
-            <span style="font-size: 9px; margin-top: 5px;">Shape Challenge (50 Stages)</span>
+            <div>📍 アドベンチャー</div>
+            <span style="font-size: 9px; margin-top: 5px;">形をあつめるチャレンジ（50ステージ）</span>
         </button>
         <button class="home-button btn-classic" onclick="startGame('SOLO')">
-            <div>∞ CLASSIC</div>
-            <span style="font-size: 9px; margin-top: 5px;">New Score System!</span>
+            <div>∞ クラシック</div>
+            <span style="font-size: 9px; margin-top: 5px;">ハイスコアをめざそう！</span>
         </button>
     </div>
 
     <!-- ゲームエリア -->
     <div class="game-area" id="gameArea">
-        <h1 id="gameModeTitle" style="font-size: 10px; text-align: center; margin: 0; color: #ff55aa;">CLASSIC</h1>
+        <h1 id="gameModeTitle" style="font-size: 10px; text-align: center; margin: 0; color: #ff55aa;">クラシック</h1>
         <button id="settingsButton" onclick="openSettingsModal()">⚙️</button>
 
         <div class="info-bar">
-            <span>SCORE: <span id="scoreDisplay">0</span></span>
-            <span id="modeInfoDisplay">COMBO: 0</span>
+            <span>点数（てんすう）: <span id="scoreDisplay">0</span></span>
+            <span id="modeInfoDisplay"></span>
         </div>
 
         <canvas id="mainCanvas"></canvas>
 
-        <div id="tauntMessage">煽り待機中...</div>
+        <div id="tauntMessage">準備（じゅんび）はいいかな？</div>
 
         <div class="piece-selection" id="pieceSelection"></div>
+
+        <!-- ステージクリア演出 -->
+        <div id="stageClearOverlay" class="modal-overlay" style="background-color: rgba(255, 215, 0, 0.4);">
+            <div class="stage-clear-content">
+                <div class="star-burst">🌟</div>
+                <h1 style="color:#ffffff; font-size: 2.5rem; text-shadow: 4px 4px 0 #ffaa00;">クリア！</h1>
+                <p style="color:#ffffff; font-size: 1.5rem; font-weight: bold;">おめでとう！</p>
+                <div class="star-burst">🌟</div>
+            </div>
+        </div>
 
         <!-- 設定モーダル -->
         <div id="settingsModal" class="modal-overlay">
             <div class="modal-content">
-                <h2 style="font-size: 1.2rem; margin-bottom: 15px;">SETTINGS</h2>
-                <button class="modal-button" onclick="toggleSound()">🔊 SOUND TOGGLE</button>
-                <button class="modal-button" onclick="toggleBGM()">🎵 BGM TOGGLE</button>
-                <button class="modal-button" onclick="goToHome()">🏠 EXIT TO HOME</button>
-                <button class="modal-button" onclick="restartGame()">🔄 RESTART</button>
+                <h2 style="font-size: 1.2rem; margin-bottom: 15px;">せってい</h2>
+                
+                <div style="margin-bottom: 15px; border-top: 1px solid #ffffff44; padding-top: 10px;">
+                    <p style="font-size: 0.8rem; margin: 0 0 8px 0; color: #ffaa00;">ブロックの色（いろ）</p>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 5px;">
+                        <button class="theme-btn" onclick="changeTheme('CLASSIC')" style="background:#FFD700; color:#000;">いつもの</button>
+                        <button class="theme-btn" onclick="changeTheme('NEON')" style="background:#fe019a;">ネオン</button>
+                        <button class="theme-btn" onclick="changeTheme('PASTEL')" style="background:#FFB7B2; color:#000;">パステル</button>
+                        <button class="theme-btn" onclick="changeTheme('CANDY')" style="background:#f44336;">キャンディ</button>
+                    </div>
+                </div>
+
+                <div style="margin-bottom: 15px; border-top: 1px solid #ffffff44; padding-top: 10px;">
+                    <p style="font-size: 0.8rem; margin: 0 0 8px 0; color: #ffaa00;">ブロックの形（かたち）</p>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 5px;">
+                        <button class="theme-btn" onclick="changeStyle('DEFAULT')" style="background:#555;">ふつう</button>
+                        <button class="theme-btn" onclick="changeStyle('PUFFY')" style="background:#ffb7b2; color:#000;">ぷっくり</button>
+                        <button class="theme-btn" onclick="changeStyle('GEM')" style="background:#00ffff; color:#000;">ほうせき</button>
+                        <button class="theme-btn" onclick="changeStyle('SIMPLE')" style="background:#fff; color:#000;">シンプル</button>
+                        <button class="theme-btn" onclick="changeStyle('NEON')" style="background:#000; color:#0f0;">ネオン</button>
+                        <button class="theme-btn" onclick="changeStyle('LEGO')" style="background:#ff0000;">レゴ風</button>
+                        <button class="theme-btn" onclick="changeStyle('CHOCO')" style="background:#4d2b1a;">チョコ</button>
+                        <button class="theme-btn" onclick="changeStyle('STAR')" style="background:#ffff00; color:#000;">スター</button>
+                    </div>
+                </div>
+
+                <div style="margin-bottom: 15px; border-top: 1px solid #ffffff44; padding-top: 10px;">
+                    <p style="font-size: 0.8rem; margin: 0 0 8px 0; color: #ffaa00;">背景（はいけい）の色</p>
+                    <div style="display: flex; gap: 10px; justify-content: center; align-items: center;">
+                        <button onclick="changeBgColor('#000000')" style="width:30px; height:30px; background:#000; border:2px solid #fff;"></button>
+                        <button onclick="changeBgColor('#1a1a33')" style="width:30px; height:30px; background:#1a1a33; border:2px solid #fff;"></button>
+                        <button onclick="changeBgColor('#222244')" style="width:30px; height:30px; background:#222244; border:2px solid #fff;"></button>
+                        <input type="color" onchange="changeBgColor(this.value)" value="#000000" style="width:30px; height:30px; background:none; border:none; padding:0; cursor:pointer;">
+                    </div>
+                </div>
+
+                <button class="modal-button" onclick="toggleSound()">🔊 音（おと）ON/OFF</button>
+                <button class="modal-button" onclick="toggleBGM()">🎵 音楽（おんがく）ON/OFF</button>
+                <button class="modal-button" onclick="goToHome()">🏠 ホームにもどる</button>
+                <button class="modal-button" onclick="restartGame()">🔄 やりなおす</button>
                 <button class="modal-button" style="background:#888; box-shadow:0 4px 0 #555;"
-                    onclick="closeSettingsModal()">CLOSE</button>
+                    onclick="closeSettingsModal()">とじる</button>
             </div>
         </div>
 
-        <!-- ゲームオーバーモーダル -->
+        <!-- ゲームオーバー -->
         <div id="gameOverOverlay" class="modal-overlay">
-            <div class="modal-content">
-                <h1 style="color:#ff55aa;">GAME OVER</h1>
-                <p id="finalScoreText" style="margin: 15px 0;"></p>
-                <button class="modal-button" onclick="restartGame()">TRY AGAIN</button>
-                <button class="modal-button" style="background:#55acee; box-shadow:0 4px 0 #3b88c3;"
-                    onclick="goToHome()">HOME</button>
+            <div class="game-over-content-3d">
+                <div class="fail-icon">💀</div>
+                <h1 style="color:#ff0000; font-size: 2.2rem; text-shadow: 0 4px 10px #000;">ざんねん！</h1>
+                <p id="finalScoreText" style="color:#ffffff; font-size: 1.2rem; margin: 15px 0; font-weight: bold;"></p>
+                <div style="margin-top: 20px;">
+                    <button class="modal-button" onclick="restartGame()">もう一度あそぶ！</button>
+                    <button class="modal-button" style="background:#55acee; box-shadow:0 4px 0 #3b88c3;"
+                        onclick="goToHome()">やめる</button>
+                </div>
+                <div class="fail-icon">💩</div>
             </div>
         </div>
 
-        <!-- 勝利モーダル -->
+        <!-- 勝利 -->
         <div id="victoryOverlay" class="modal-overlay">
             <div class="modal-content">
-                <h1 style="color:#FFD700;">CONGRATS!</h1>
+                <h1 style="color:#FFD700;">おめでとう！</h1>
                 <p>50個の図形を完全制覇！</p>
-                <p>君がアドベンチャーの覇者だｗ</p>
-                <button class="modal-button" onclick="goToHome()">HOME</button>
+                <p>きみはパズルマスターだ！</p>
+                <button class="modal-button" onclick="goToHome()">ホームにもどる</button>
             </div>
         </div>
     </div>

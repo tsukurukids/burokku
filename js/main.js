@@ -143,10 +143,13 @@ function startGame(mode) {
     document.getElementById('settingsModal').style.display = 'none';
 
     if (mode === 'ADVENTURE') {
-        document.getElementById('gameModeTitle').textContent = "ADVENTURE";
+        // アドベンチャーモードのルール説明
+        alert("【📍 アドベンチャーモードのルール】\n\n・画面にある「白い光る枠」がターゲットだよ！\n・ターゲットがある列（縦か横）を消すと、ターゲットも消えるよ。\n・ターゲットの上には自由にブロックを置けるから安心してね！\n・すべてのターゲットを消せばステージクリア！\n・全部で50ステージあるよ。がんばってね！ｗ");
+        
+        document.getElementById('gameModeTitle').textContent = "アドベンチャー";
         generateAdventureShape();
     } else {
-        document.getElementById('gameModeTitle').textContent = "CLASSIC";
+        document.getElementById('gameModeTitle').textContent = "クラシック";
     }
 
     currentPieces = [createPiece(), createPiece(), createPiece()];
@@ -160,6 +163,16 @@ function startGame(mode) {
  */
 function update() {
     if (!isGameOver) {
+        // --- 💥 キラキラを動かす処理 ---
+        particles.forEach((p, i) => {
+            p.x += p.vx;
+            p.y += p.vy;
+            p.vy += 0.5; // 少しずつ下に落ちるようにするね（重力！）
+            p.life -= 0.02; // だんだん消えていくよ
+        });
+        // 死んだキラキラ（消えたやつ）をお掃除するよ
+        particles = particles.filter(p => p.life > 0);
+
         drawMain();
         updateUI();
         requestAnimationFrame(update);
@@ -201,3 +214,63 @@ function restartGame() {
 window.onload = () => {
     document.getElementById('homeScreen').style.display = 'flex';
 };
+
+/**
+ * ブロックの色テーマを変えるよ！
+ * @param {string} themeName - テーマの名前（CLASSIC, NEON, PASTEL, CANDY）
+ */
+function changeTheme(themeName) {
+    const oldColors = [...THEME.colors];
+    THEME.colors = THEME_OPTIONS[themeName];
+    
+    // 💡 今ボードに乗っているブロックの色も、新しいテーマの色に塗りかえるよ！
+    for (let y = 0; y < ROWS; y++) {
+        for (let x = 0; x < COLS; x++) {
+            const currentIdx = oldColors.indexOf(board[y][x]);
+            if (currentIdx !== -1) {
+                // 同じ順番の色（1番目の色は新しいテーマの1番目の色）に置き換えるね
+                board[y][x] = THEME.colors[currentIdx % THEME.colors.length];
+            }
+        }
+    }
+    
+    // 💡 次に置くブロック（ピース）の色も塗りかえるよ！
+    currentPieces.forEach(p => {
+        if (p) {
+            const currentIdx = oldColors.indexOf(p.color);
+            if (currentIdx !== -1) {
+                p.color = THEME.colors[currentIdx % THEME.colors.length];
+            }
+        }
+    });
+
+    playSound(600, 0.05, 'sine');
+    drawMain();
+    drawSelection();
+}
+
+/**
+ * 背景の色を変えるよ！
+ * @param {string} color - 選んだ色のコード（#000000 など）
+ */
+function changeBgColor(color) {
+    THEME.bg = color;
+    playSound(400, 0.05, 'sine');
+    drawMain();
+}
+
+/**
+ * ブロックの見た目（スタイル）を変えるよ！
+ * @param {string} styleName - 見た目の名前（DEFAULT, PUFFY, GEM, SIMPLE, NEON, LEGO, CHOCO, STAR）
+ */
+function changeStyle(styleName) {
+    // 🎨 新しい見た目をセットするよ
+    THEME.style = styleName;
+    
+    // ぴこん！と音を鳴らして、描きなおすよ
+    playSound(700, 0.05, 'triangle');
+    
+    // 画面全体と、次に置くブロックをすぐに描きなおすね
+    if (typeof drawMain === 'function') drawMain();
+    if (typeof drawSelection === 'function') drawSelection();
+}

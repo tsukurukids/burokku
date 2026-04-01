@@ -14,6 +14,7 @@ let currentMode = 'SOLO';
 let adventureProgress = 0;
 let targetPattern = [];
 let BLOCK_SIZE = 0;
+let particles = []; // 💥 飛びちるキラキラを保存するリスト
 
 // ドラッグ関連
 let isDragging = false;
@@ -129,7 +130,8 @@ function placePiece() {
         score += Math.round(base * (1 + currentCombo * 0.2));
         playSound(1200, 0.15);
 
-        if (tot === 2) taunt("LINES_2");
+        if (tot === 1) taunt("LINES_1");
+        else if (tot === 2) taunt("LINES_2");
         else if (tot >= 3) taunt("LINES_MULTI");
 
         if (currentCombo >= 15) taunt("COMBO_GOD");
@@ -137,10 +139,11 @@ function placePiece() {
         else if (currentCombo >= 5) taunt("COMBO_MID");
         else if (currentCombo >= 3) taunt("COMBO_START");
 
-        // アドベンチャーモードの処理
+        // アドベンチャーモードの処理（白いブロックが消えたかどうか）
         if (currentMode === 'ADVENTURE') {
             let anyNew = false;
             targetPattern.forEach(t => {
+                // まだ消えていなくて、その行か列が消えるなら「消えた」ことにするよ
                 if (!t.collected && (cr.includes(t.r) || cc.includes(t.c))) {
                     t.collected = true;
                     anyNew = true;
@@ -149,28 +152,64 @@ function placePiece() {
 
             if (anyNew) taunt("ADVENTURE_COLLECT", 1000);
 
+            // すべての白いブロックが消えたら、次のステージへ！
             if (targetPattern.every(t => t.collected)) {
                 adventureProgress++;
-                taunt("ADVENTURE_COMPLETE", 2500);
 
-                if (adventureProgress >= ADVENTURE_GOAL) {
-                    isGameOver = true;
-                    document.getElementById('victoryOverlay').style.display = 'flex';
-                } else {
-                    generateAdventureShape();
-                }
+                // 🎆 進めば進むほど、どんどん盛大にお祝いするよ！
+                const overlay = document.getElementById('stageClearOverlay');
+                const content = overlay.querySelector('.stage-clear-content');
+
+                // ステージ数に合わせて、星の数を増やすよ（1ステージ1個）
+                const stars = "🌟".repeat(Math.min(adventureProgress, 20)); // 最大20個まで
+                const fire = "🔥".repeat(Math.floor(adventureProgress / 5)); // 5ステージごとに炎も出るよｗ
+
+                content.innerHTML = `
+                    <div class="star-burst" style="font-size: ${2.5 + adventureProgress * 0.1}rem;">${stars}</div>
+                    <h1 style="color:#ffffff; font-size: 2.5rem; text-shadow: 4px 4px 0 #ffaa00;">STAGE ${adventureProgress} CLEAR!</h1>
+                    <p style="color:#ffffff; font-size: 1.5rem; font-weight: bold;">おめでとう！すごすぎる！ｗ</p>
+                    <div class="star-burst" style="font-size: ${2.5 + adventureProgress * 0.1}rem;">${stars}${fire}</div>
+                `;
+
+                overlay.style.display = 'flex';
+                playSound(880 + adventureProgress * 10, 0.1, 'sawtooth'); // ステージが進むと音も高くなるよ！
+
+                // だんだんお祝いの時間もちょっとだけ長くするね
+                setTimeout(() => {
+                    overlay.style.display = 'none';
+
+                    if (adventureProgress >= ADVENTURE_GOAL) {
+                        isGameOver = true;
+                        document.getElementById('victoryOverlay').style.display = 'flex';
+                    } else {
+                        // 次のステージのために白いブロックを新しく置くよ
+                        generateAdventureShape();
+                        updateUI();
+                    }
+                }, 1500 + Math.min(adventureProgress * 50, 2000));
             }
         } else {
+            // 普通のモード（クラシック）のとき
             if (board.flat().every(cell => cell === 0)) {
                 taunt("ALL_CLEAR", 3000);
             }
         }
 
         // 行と列をクリア
-        cr.forEach(y => board[y].fill(0));
+        cr.forEach(y => {
+            for (let x = 0; x < COLS; x++) {
+                if (board[y][x] !== 0) {
+                    spawnParticles(x, y, board[y][x]); // 消える瞬間にキラキラを出すよ！
+                    board[y][x] = 0;
+                }
+            }
+        });
         cc.forEach(x => {
             for (let y = 0; y < ROWS; y++) {
-                board[y][x] = 0;
+                if (board[y][x] !== 0) {
+                    spawnParticles(x, y, board[y][x]); // 消える瞬間にキラキラを出すよ！
+                    board[y][x] = 0;
+                }
             }
         });
     } else {
@@ -212,7 +251,18 @@ function checkGameOver() {
 
     if (!can) {
         isGameOver = true;
-        document.getElementById('finalScoreText').textContent = `SCORE: ${score}`;
+
+        // 🏆 モードに合わせて、結果のメッセージを日本語で作るよ
+        let resultText = "";
+        if (currentMode === 'ADVENTURE') {
+            resultText = `あつめたステージ数: ${adventureProgress}<br>点数: ${score}`;
+        } else {
+            resultText = `点数: ${score}`;
+        }
+
+        const scoreDiv = document.getElementById('finalScoreText');
+        scoreDiv.innerHTML = resultText;
+
         document.getElementById('gameOverOverlay').style.display = 'flex';
         playSound(100, 0.5, 'square');
         taunt("GAME_OVER", 4000);
@@ -226,18 +276,40 @@ function updateUI() {
     document.getElementById('scoreDisplay').textContent = score;
 
     if (currentMode === 'ADVENTURE') {
-        document.getElementById('modeInfoDisplay').textContent = `SHAPES: ${adventureProgress} / ${ADVENTURE_GOAL}`;
+        document.getElementById('modeInfoDisplay').textContent = `あつめた形: ${adventureProgress} / ${ADVENTURE_GOAL}`;
     } else {
-        document.getElementById('modeInfoDisplay').innerHTML = `COMBO: ${currentCombo}`;
+        // 💡 コンボの表示を空（から）にするね！
+        document.getElementById('modeInfoDisplay').innerHTML = '';
     }
 }
 
 /**
- * アドベンチャーモードの図形を生成
+ * アドベンチャーモードの「集めるターゲット（白いブロック）」を
+ * 毎回バラバラな場所に新しく作るよ！
  */
 function generateAdventureShape() {
-    const temp = ADVENTURE_TEMPLATES[Math.floor(Math.random() * ADVENTURE_TEMPLATES.length)];
-    targetPattern = temp.map(c => ({ r: c[0], c: c[1], collected: false }));
+    // ステージが変わるときは、一度盤面をきれいにするね
+    if (typeof board !== 'undefined' && board.length > 0) {
+        board = Array.from({ length: ROWS }, () => Array(COLS).fill(0));
+    }
+
+    // 白いブロックを置く場所を適当に決めるよ（5個から12個くらい）
+    const count = 5 + Math.floor(Math.random() * 8);
+    const points = [];
+    const used = new Set();
+
+    while (points.length < count) {
+        const r = Math.floor(Math.random() * ROWS);
+        const c = Math.floor(Math.random() * COLS);
+        const key = `${r}-${c}`;
+        if (!used.has(key)) {
+            used.add(key);
+            points.push({ r, c, collected: false });
+        }
+    }
+
+    // ターゲットのリストを更新するよ
+    targetPattern = points;
 }
 
 /**
@@ -250,4 +322,28 @@ function createPiece() {
         matrix: JSON.parse(JSON.stringify(shape)),
         color: THEME.colors[Math.floor(Math.random() * THEME.colors.length)]
     };
+}
+
+/**
+ * 消えたブロックの場所にキラキラ（エフェクト）を作るよ！
+ * @param {number} x - ブロックのX座標
+ * @param {number} y - ブロックのY座標
+ * @param {string} color - ブロックの色
+ */
+function spawnParticles(x, y, color) {
+    const px = (x + 0.5) * BLOCK_SIZE;
+    const py = (y + 0.5) * BLOCK_SIZE;
+
+    // 1つのブロックから何個の破片（はへん）を飛ばすか決めるね（10個くらい！）
+    for (let i = 0; i < 10; i++) {
+        particles.push({
+            x: px,
+            y: py,
+            vx: (Math.random() - 0.5) * 15, // 飛び散る速さ
+            vy: (Math.random() - 0.5) * 15,
+            life: 1.0, // 生きている時間
+            color: color,
+            size: Math.random() * 6 + 3 // 大きさ
+        });
+    }
 }
